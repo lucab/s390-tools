@@ -22,16 +22,14 @@
 #include <json-c/json.h>
 #endif /* HAVE_JSONC */
 
-#ifdef HAVE_LOCKFILE
-#include <lockfile.h>
-#endif /* HAVE_LOCKFILE */
-
 #include "lib/ap.h"
 #include "lib/util_file.h"
 #include "lib/util_libc.h"
 #include "lib/util_panic.h"
 #include "lib/util_path.h"
 #include "lib/util_udev.h"
+
+#include "lockfile.h"
 
 /*
  * Return sysfs path to a bus attribute
@@ -701,33 +699,37 @@ void ap_list_remove_all(struct util_list *list)
 	}
 }
 
-#ifdef HAVE_LOCKFILE
-static int ap_lockfile_create(int flags)
-{
-	return lockfile_create(AP_LOCKFILE, AP_LOCK_RETRIES, flags);
-}
-
 /**
- * Acquire the ap config lock using this process PID (L_PID)
+ * Acquire the ap config lock using this Process ID (PID)
  *
- * @retval         0          Lock successfully acquired on behalf of L_PID
+ * @retval         0          Lock successfully acquired on behalf of PID
  * @retval         != 0       Error, lock was not obtained
  */
 int ap_get_lock(void)
 {
-	return ap_lockfile_create(L_PID);
+	pid_t id;
+
+	id = getpid();
+	return ap_lockfile_create(AP_LOCKFILE, id, AP_LOCK_RETRIES);
 }
 
 /**
- * Acquire the ap config lock using the parent process PID (L_PPID) -- intended
+ * Acquire the ap config lock using the Parent Process ID (PPID) -- intended
  * for use by the mdevctl callout ap-check utility
  *
- * @retval         0          Lock successfully acquired on behalf of L_PPID
+ * @retval         0          Lock successfully acquired on behalf of PPID
  * @retval         != 0       Error, lock was not obtained
  */
 int ap_get_lock_callout(void)
 {
-	return ap_lockfile_create(L_PPID);
+	pid_t id;
+
+	id = getppid();
+	if (id == 1) {
+		return LOCK_ERR_ORPHANED;
+	}
+
+	return ap_lockfile_create(AP_LOCKFILE, id, AP_LOCK_RETRIES);
 }
 
 /**
@@ -738,23 +740,5 @@ int ap_get_lock_callout(void)
  */
 int ap_release_lock(void)
 {
-	return lockfile_remove(AP_LOCKFILE);
+	return ap_lockfile_release(AP_LOCKFILE);
 }
-#else
-/* If no liblockfile, actions are performed without acquiring the file lock */
-int ap_get_lock(void)
-{
-	return 0;
-}
-
-int ap_get_lock_callout(void)
-{
-	return 0;
-}
-
-int ap_release_lock(void)
-{
-	return 0;
-}
-
-#endif /* HAVE_LOCKFILE */

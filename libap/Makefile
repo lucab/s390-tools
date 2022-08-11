@@ -2,17 +2,6 @@ include ../common.mak
 
 lib = libap.a
 
-check-dep-lock:
-	touch check-dep-lock
-ifneq (${HAVE_LOCKFILE},0)
-	$(call check_dep, \
-		"libap", \
-		"lockfile.h", \
-		"liblockfile-devel", \
-		"HAVE_LOCKFILE=0")
-ALL_CPPFLAGS += -DHAVE_LOCKFILE
-endif
-
 check-dep-json:
 	touch check-dep-json
 ifneq (${HAVE_JSONC},0)
@@ -25,11 +14,12 @@ ALL_CPPFLAGS += -DHAVE_JSONC
 endif
 
 all: $(lib)
-objects = ap.o
+sources = ap.c lockfile.c lockfile.h
+objects = ap.o lockfile.o
 
 $(lib): $(objects)
 
-$(objects): check-dep-lock check-dep-json
+$(objects): check-dep-json
 
 install: all
 
